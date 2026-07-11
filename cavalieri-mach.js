@@ -1,220 +1,208 @@
 'use strict';
 
-const maxSteps = 40; // 조각(Slice)의 개수
-let currentProgress = 0;
-let animationFrameId = null;
-let simSpeed = 1.0;
-let shearAmount = 0.0; // 밀림 정도 (단면 평행이동)
-let activeMode = '2d'; // '2d': 넓이(삼각형), '3d': 부피(구체)
+// 시뮬레이션 기본 설정
+const canvas = document.getElementById('cavalieriCanvas');
+const ctx = canvas.getContext('2d');
 
-let mainChart, sliceChart;
+let blockCount = 15;      // 블록(동전) 쌓기 개수
+let shearAmount = 0.0;     // 수평 밀림 정도 (0 ~ 1)
+let scanY = -1;            // 현재 단면 스캔 중인 Y 위치
+let isScanning = false;
+let scanProgress = 0;
+let activeMode = 'triangle'; // 'triangle'(삼각형/2D), 'sphere'(반구/3D)
 
-// DOM 메모리 캐싱
+// DOM 캐싱
 const modeSelect = document.getElementById('modeSelect');
-const speedInput = document.getElementById('speedInput');
-const shearInput = document.getElementById('shearInput');
+const blockSlider = document.getElementById('blockSlider');
+const blockVal = document.getElementById('blockVal');
+const shearSlider = document.getElementById('shearSlider');
 const shearVal = document.getElementById('shearVal');
 const startBtn = document.getElementById('startBtn');
 const resetBtn = document.getElementById('resetBtn');
 
-// 앱 초기 실행
-initCharts();
-updateFormulaUI();
-resetSimulation();
+// 초기 세팅 및 캔버스 반응형 리사이즈
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+update();
 
-function initCharts() {
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = '#334155';
-
-    // 1. 전체 도형 및 단면선 시각화 차트
-    mainChart = new Chart(document.getElementById('mainChart').getContext('2d'), {
-        type: 'scatter',
-        data: {
-            datasets: [
-                { id: 'shape1', label: '도형 A (기준)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.2)', showLine: true, pointRadius: 0, fill: true },
-                { id: 'shape2', label: '도형 B (변형)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', showLine: true, pointRadius: 0, fill: true },
-                { id: 'scan_line', label: '현재 단면 측정선', data: [], borderColor: '#f43f5e', borderWidth: 2, borderDash: [4,4], showLine: true, pointRadius: 0 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { min: -2.5, max: 5.5 },
-                y: { min: -0.5, max: 3.5 }
-            },
-            animation: false,
-            plugins: { legend: { display: true } }
-        }
-    });
-
-    // 2. 높이에 따른 단면의 크기(길이 또는 넓이) 비교 차트
-    sliceChart = new Chart(document.getElementById('sliceChart').getContext('2d'), {
-        type: 'line',
-        data: {
-            datasets: [
-                { label: '도형 A의 단면 크기', data: [], borderColor: '#38bdf8', borderWidth: 2.5, pointRadius: 0, tension: 0.1 },
-                { label: '도형 B의 단면 크기', data: [], borderColor: '#10b981', borderWidth: 2.5, pointRadius: 0, tension: 0.1, borderDash: [3, 3] },
-                { label: '현재 높이의 단면 일치성', data: [], backgroundColor: '#f43f5e', borderColor: '#ffffff', borderWidth: 1.5, pointRadius: 6 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { title: { display: true, text: '높이 (y)' }, min: 0, max: 3.0 },
-                y: { title: { display: true, text: '단면의 크기 (길이/넓이)' }, min: 0, max: 10.0 }
-            },
-            animation: false
-        }
-    });
+function resizeCanvas() {
+    // 부모 컨테이너 크기에 맞춰 고해상도 대응
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = 380 * window.devicePixelRatio;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = '380px';
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    render();
 }
 
-function calculateShapes() {
-    const shape1Data = [];
-    const shape2Data = [];
-    const sliceSpectrumA = [];
-    const sliceSpectrumB = [];
+function render() {
+    const W = canvas.width / window.devicePixelRatio;
+    const H = canvas.height / window.devicePixelRatio;
+    
+    // 캔버스 초기화 (다크 테마 배경)
+    ctx.clearRect(0, 0, W, H);
+    
+    const baseH = H - 40; // 바닥 선 기준 위치
+    const totalHeight = 240; // 도형들이 가질 총 높이
+    const blockH = totalHeight / blockCount; // 블록 하나의 두께
 
-    if (activeMode === '2d') {
-        // [2D 모드] 밑변과 높이가 같은 삼각형 비교 (도형 A: 직각삼각형, 도형 B: 카발리에리 전단 변형 삼각형)
-        // 높이 y는 0부터 3까지
-        for (let y = 0; y <= 3.0; y += 0.05) {
-            const width = 2.0 * (1 - y / 3.0); // 높이에 따른 단면의 길이 (밑변이 2)
-            
-            // 도형 A (왼쪽 정렬 정형 삼각형)
-            shape1Data.push({ x: 0, y: y });
-            shape1Data.push({ x: width, y: y });
+    // 바닥 기준선 그리기
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(30, baseH);
+    ctx.lineTo(W - 30, baseH);
+    ctx.stroke();
 
-            // 도형 B (오른쪽으로 shearAmount만큼 밀린 삼각형)
-            const shift = y * shearAmount;
-            shape2Data.push({ x: 3.0 + shift, y: y });
-            shape2Data.push({ x: 3.0 + shift + width, y: y });
+    // 두 도형의 중심 축 설정
+    const centerA = W * 0.28;
+    const centerB = W * 0.72;
 
-            // 단면의 길이는 둘 다 width로 동일함
-            sliceSpectrumA.push({ x: y, y: width });
-            sliceSpectrumB.push({ x: y, y: width });
+    // 실시간으로 갱신할 텍스트 창 데이터 초기화
+    let currentWidthA = 0;
+    let currentWidthB = 0;
+    let isCurrentLayerHighlighted = false;
+
+    // 바닥부터 한 층씩 벽돌(동전) 쌓아 올리기
+    for (let i = 0; i < blockCount; i++) {
+        const yPos = baseH - (i * blockH) - blockH; // 현재 블록의 Y 좌표
+        
+        // 스캔선이 이 블록 범위 내에 위치하는지 판단
+        const isHighlighted = isScanning && (scanY >= yPos && scanY <= yPos + blockH);
+
+        // 1. 왼쪽 도형 (도형 A : 기준 도형)
+        ctx.fillStyle = isHighlighted ? '#f43f5e' : 'rgba(56, 189, 248, 0.75)';
+        ctx.strokeStyle = isHighlighted ? '#ffffff' : '#0284c7';
+        ctx.lineWidth = 1.5;
+
+        let widthA = 0;
+        if (activeMode === 'triangle') {
+            // 삼각형: 위로 갈수록 선형적으로 줄어듬
+            widthA = 140 * (1 - (i / blockCount));
+        } else {
+            // 반구(3D): 원의 기하학적 단면 r = sqrt(R^2 - h^2) 비율 차용
+            const ratio = i / blockCount;
+            widthA = 150 * Math.sqrt(Math.max(0, 1 - ratio * ratio));
         }
-    } else {
-        // [3D 모드] 부피 비교 (도형 A: 반구, 도형 B: 원기둥에서 원뿔을 뺀 파형)
-        // 반지름 R = 3, 높이 y는 0부터 3까지
-        for (let y = 0; y <= 3.0; y += 0.05) {
-            // 1. 반지름 3인 반구의 단면 반지름 r = sqrt(R^2 - y^2) -> 단면적 = pi * (9 - y^2)
-            const rSemisphere = Math.sqrt(Math.max(0, 9 - y * y));
-            shape1Data.push({ x: -rSemisphere, y: y });
-            shape1Data.push({ x: rSemisphere, y: y });
-            
-            const areaA = Math.PI * (9 - y * y);
-            sliceSpectrumA.push({ x: y, y: areaA });
 
-            // 2. 외곽 원기둥(반지름3)에서 안쪽 원뿔(반지름=높이 y)을 제외한 영역
-            // 단면적 = 원기둥 단면(pi * 9) - 원뿔 단면(pi * y^2) = pi * (9 - y^2)
-            // 시각적으로 링(Ring) 구조의 단면 두께 표현
-            shape2Data.push({ x: 3.5 + y * shearAmount, y: y });
-            shape2Data.push({ x: 3.5 + y * shearAmount + rSemisphere, y: y }); // 기하학적 면적 일치 시각화
+        // 왼쪽 도형은 제자리에 똑바로 쌓음
+        ctx.fillRect(centerA - widthA / 2, yPos, widthA, blockH);
+        ctx.strokeRect(centerA - widthA / 2, yPos, widthA, blockH);
 
-            const areaB = Math.PI * (9 - y * y);
-            sliceSpectrumB.push({ x: y, y: areaB });
+        // 2. 오른쪽 도형 (도형 B : 변형/밀린 도형)
+        ctx.fillStyle = isHighlighted ? '#f43f5e' : 'rgba(16, 185, 129, 0.75)';
+        ctx.strokeStyle = isHighlighted ? '#ffffff' : '#059669';
+
+        // 카발리에리 원리에 의해 두께와 폭(width)은 A와 완전히 동일함!
+        let widthB = widthA; 
+        
+        // [핵심 오락 요소] 슬라이더 값에 따라 층별로 수평 밀림(Shear) 효과 발생
+        const shiftX = (i * 18) * shearAmount; 
+
+        ctx.fillRect(centerB - widthB / 2 + shiftX, yPos, widthB, blockH);
+        ctx.strokeRect(centerB - widthB / 2 + shiftX, yPos, widthB, blockH);
+
+        // 현재 스캔 중인 레이어의 치수 데이터를 매핑함
+        if (isHighlighted) {
+            currentWidthA = widthA;
+            currentWidthB = widthB;
+            isCurrentLayerHighlighted = true;
         }
     }
 
-    mainChart.data.datasets[0].data = shape1Data.sort((a,b) => a.y - b.y);
-    mainChart.data.datasets[1].data = shape2Data.sort((a,b) => a.y - b.y);
-    sliceChart.data.datasets[0].data = sliceSpectrumA;
-    sliceChart.data.datasets[1].data = sliceSpectrumB;
+    // 3. 실시간 빨간색 단면 스캔선 연출
+    if (isScanning) {
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(20, scanY);
+        ctx.lineTo(W - 20, scanY);
+        ctx.stroke();
+        ctx.setLineDash([]); // 대시 초기화
 
-    // 차트 스케일 자동 조정
-    if (activeMode === '2d') {
-        sliceChart.options.scales.y.max = 2.5;
-    } else {
-        sliceChart.options.scales.y.max = 30.0;
+        // 단면선 좌우에 계측 레이블 가이드라인 노출
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`단면 폭: ${currentWidthA.toFixed(0)}px`, centerA - 40, scanY - 6);
+        ctx.fillText(`단면 폭: ${currentWidthB.toFixed(0)}px`, centerB - 40 + ((baseH - scanY)/blockH * 1.2), scanY - 6);
     }
 
-    mainChart.update();
-    sliceChart.update();
+    // 우측 수식창 텍스트 동적 업데이트
+    if (isCurrentLayerHighlighted) {
+        document.getElementById('formula-curr-y').innerText = ((baseH - scanY) / totalHeight * 10).toFixed(1);
+        document.getElementById('formula-curr-size').innerText = (currentWidthA * 1.5).toFixed(0);
+    }
 }
 
-function resetSimulation() {
-    cancelAnimationFrame(animationFrameId);
-    currentProgress = 0;
-    calculateShapes();
-    
-    mainChart.data.datasets[2].data = [];
-    sliceChart.data.datasets[2].data = [];
-    
-    mainChart.update();
-    sliceChart.update();
+function update() {
+    render();
 }
 
-function startSimulation() {
-    resetSimulation();
-    animate();
-}
+function animateScan() {
+    if (!isScanning) return;
 
-function animate() {
-    if (currentProgress > 3.0) {
-        cancelAnimationFrame(animationFrameId);
+    const H = canvas.height / window.devicePixelRatio;
+    const baseH = H - 40;
+    const totalHeight = 240;
+
+    // 바닥에서부터 위로 부드럽게 진행하도록 설정
+    scanProgress += 0.008;
+    if (scanProgress > 1.0) {
+        isScanning = false;
+        scanProgress = 0;
+        scanY = -1;
+        render();
         return;
     }
 
-    const y = currentProgress;
-    
-    // 1. 메인 차트에 현재 단면 스캔선 표시
-    mainChart.data.datasets[2].data = [
-        { x: -2.5, y: y },
-        { x: 5.5, y: y }
-    ];
-
-    // 2. 단면 차트에 현재 단면 크기 포인트 매핑
-    let currentSize = 0;
-    if (activeMode === '2d') {
-        currentSize = 2.0 * (1 - y / 3.0);
-    } else {
-        currentSize = Math.PI * (9 - y * y);
-    }
-    
-    sliceChart.data.datasets[2].data = [{ x: y, y: currentSize }];
-
-    mainChart.update('none');
-    sliceChart.update('none');
-
-    // 실시간 수식 수치 반영
-    document.getElementById('formula-curr-y').innerText = y.toFixed(2);
-    document.getElementById('formula-curr-size').innerText = currentSize.toFixed(2);
-
-    currentProgress += (0.02 * simSpeed);
-    animationFrameId = requestAnimationFrame(animate);
+    scanY = baseH - (totalHeight * scanProgress);
+    render();
+    requestAnimationFrame(animateScan);
 }
 
-function updateFormulaUI() {
-    const titleBox = document.getElementById('formula-title');
-    const descBox = document.getElementById('formula-desc');
-    
-    if (activeMode === '2d') {
-        titleBox.innerText = "2D 넓이 검증: 삼각형의 전단 변형";
-        descBox.innerText = "밑변의 길이(b)와 높이(h)가 같은 두 삼각형은 모양이 아무리 찌그러져도(Sheared), 임의의 높이 y에서의 선분 단면의 길이 f(y)가 항상 동일하므로 전체 넓이가 같습니다.";
-    } else {
-        titleBox.innerText = "3D 부피 검증: 반구 vs 사이 영역";
-        descBox.innerText = "높이가 y인 지점에서 반구의 단면적 A₁(y) = π(R²-y²) 이며, 원기둥에서 원뿔을 뺀 대조군의 단면적 A₂(y) = πR² - πy² = π(R²-y²) 로 완벽히 동일하므로 전체 부피가 같습니다.";
-    }
-}
-
-// 이벤트 리스너
+// UI 이벤트 바인딩
 modeSelect.addEventListener('change', (e) => {
     activeMode = e.target.value;
-    updateFormulaUI();
-    resetSimulation();
+    const title = document.getElementById('formula-title');
+    const desc = document.getElementById('formula-desc');
+    
+    if (activeMode === 'triangle') {
+        title.innerText = "2D 삼각형 넓이 쌓기";
+        desc.innerText = "동일한 두께와 길이를 가진 종이 띠(블록)를 비스듬히 밀어도, 각 층의 길이는 변하지 않으므로 전체 넓이는 늘어나거나 줄어들지 않고 똑같습니다.";
+    } else {
+        title.innerText = "3D 동전 부피 쌓기 (구의 부피)";
+        desc.innerText = "동전을 수직으로 이쁘게 쌓으나, 옆으로 비틀어 쌓으나 각 층에 놓인 동전 하나의 면적과 두께가 똑같다면 전체 누적된 부피는 완전히 동일합니다.";
+    }
+    reset();
 });
 
-shearInput.addEventListener('input', (e) => {
+blockSlider.addEventListener('input', (e) => {
+    blockCount = parseInt(e.target.value);
+    blockVal.innerText = blockCount;
+    update();
+});
+
+shearSlider.addEventListener('input', (e) => {
     shearAmount = parseFloat(e.target.value);
-    shearVal.innerText = shearAmount.toFixed(1);
-    resetSimulation();
+    shearVal.innerText = shearAmount === 0 ? "0.0 (정렬)" : shearAmount > 0 ? `${shearAmount.toFixed(1)} (우측 밀림)` : `${Math.abs(shearAmount).toFixed(1)} (좌측 밀림)`;
+    update();
 });
 
-speedInput.addEventListener('input', (e) => {
-    simSpeed = parseFloat(e.target.value);
+startBtn.addEventListener('click', () => {
+    isScanning = true;
+    scanProgress = 0;
+    animateScan();
 });
 
-startBtn.addEventListener('click', startSimulation);
-resetBtn.addEventListener('click', resetSimulation);
+function reset() {
+    isScanning = false;
+    scanProgress = 0;
+    scanY = -1;
+    document.getElementById('formula-curr-y').innerText = "0.0";
+    document.getElementById('formula-curr-size').innerText = "0";
+    update();
+}
+
+resetBtn.addEventListener('click', reset);
