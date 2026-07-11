@@ -2,75 +2,72 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>카발리에리 원리</title>
+    <title>3차원 카발리에리 입체 시뮬레이터</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="cavalieri-mach.js" defer></script> 
 </head>
 <body>
 
-<div class="main-content" id="mainContent">
+<div class="main-content">
     <div class="container">
-        <h2>🧱 카발리에리 블록 쌓기 시뮬레이션</h2>
-        <p>수학 그래프를 몰라도 괜찮아요! 조각들을 옆으로 스르륵 밀어보며 단면의 크기가 어떻게 변하는지 직관적으로 관찰해 보세요.</p>
+        <h2>🔮 3D 공간 제어형 카발리에리 원리 시뮬레이션</h2>
+        <p>화면을 마우스로 드래그해 보세요! 2차원 평면 그림이 아니라, 실제 회전 가능한 <strong>3차원 원판(동전)들의 입체 적층 모델</strong>입니다.</p>
         
         <div class="controls">
             <div class="preset-row">
-                <span class="preset-label">실험할 모양 선택:</span>
+                <span class="preset-label">공간 물리 모델 선택:</span>
                 <select id="modeSelect" class="styled-select">
-                    <option value="triangle">🔺 2D 블록 삼각형 (넓이 비교)</option>
-                    <option value="sphere">🔮 3D 동전 쌓기 모델 (부피 비교)</option>
+                    <option value="sphere">🔮 3D 리얼 구체 동전 쌓기 (부피 증명)</option>
+                    <option value="triangle">🔺 2D 기둥 채우기 모델 (넓이 증명)</option>
                 </select>
             </div>
 
             <div class="action-row">
                 <div class="control-group" style="max-width: 160px;">
-                    <label for="blockSlider">블록 쪼개기 수: <span id="blockVal" class="highlight-text">15</span>개</label>
+                    <label for="blockSlider">동전 쪼개기 수: <span id="blockVal" class="highlight-text">15</span>층</label>
                     <input type="range" id="blockSlider" min="5" max="40" step="1" value="15">
                 </div>
                 <div class="control-group">
-                    <label for="shearSlider">도형 B 밀기 (Shear): <span id="shearVal" class="highlight-text">0.0 (정렬)</span></label>
-                    <input type="range" id="shearSlider" min="-1.0" max="1.0" step="0.1" value="0.0">
+                    <label for="shearSlider">3D 동전 더미 밀기 제어: <span id="shearVal" class="highlight-text">0.0 (수직 정렬)</span></label>
+                    <input type="range" id="shearSlider" min="-1.5" max="1.5" step="0.1" value="0.0">
                 </div>
                 <div class="btn-group">
-                    <button id="startBtn" class="btn-blue">🧐 두께 실시간 검사 시작</button>
-                    <button id="resetBtn" class="btn-slate">초기화</button>
+                    <button id="startBtn" class="btn-blue">🛸 3D 수평 단면 스캔 시작</button>
+                    <button id="resetBtn" class="btn-slate">공간 초기화</button>
                 </div>
             </div>
         </div>
 
         <div class="canvas-container">
             <div class="canvas-header">
-                <span style="color:#38bdf8;">도형 A (정형)</span>
-                <span style="color:#10b981; margin-right: 90px;">도형 B (변형)</span>
-                <span style="color:#a8a29e;">높이별 단면의 크기 변화 그래프</span>
+                <span style="color:#38bdf8;">◀ 입체 반구 A (기준 축)</span>
+                <span style="color:#a8a29e;">💡 마우스로 드래그하면 360도 회전하며 반지름과 두께를 볼 수 있습니다.</span>
+                <span style="color:#10b981;">입체 반구 B (비틀어진 동전 탑) ▶</span>
             </div>
-            <canvas id="cavalieriCanvas"></canvas>
+            <div id="canvas3dContainer"></div>
         </div>
     </div>
 </div>
 
-<div id="sidebar" class="sidebar">
-    <h3>눈으로 보는 수학 돋보기</h3>
+<div class="sidebar">
+    <h3>3차원 기하학 대시보드</h3>
     
-    <h4>💡 핵심 원리 설명</h4>
-    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;">2D 삼각형 넓이 쌓기</div>
-    <div id="formula-desc" class="formula-note" style="color: #cbd5e1; margin-bottom: 15px; font-size:12px; line-height:1.6;">
-        조각들의 위치를 옆으로 아무리 비틀고 찌그러트려도, 수평으로 자른 단면 조각의 길이 자체는 변하지 않으므로 전체 넓이는 똑같습니다.
+    <h4>📐 입체 구(Sphere)의 반지름 매커니즘</h4>
+    <div class="formula-box" style="color:#61dafb;">
+반구의 높이가인 지점에서 잘라낸 단면 원의 실시간 반지름 공식:<br>
     </div>
     
-    <h4>📦 직관적인 누적 매커니즘</h4>
-    <div class="formula-box" id="formula-integral" style="color:#e2e8f0; font-size:12px;">
-1. 도형을 얇은 블록(슬라이스)으로 쪼갭니다.<br><br>
-2. 조각을 옆으로 아무리 밀어내도 <strong>개별 조각의 원래 크기</strong>는 변하지 않습니다.<br><br>
-3. 따라서 조각의 모든 합(부피/넓이)은 언제나 완벽하게 같습니다!
+    <h4>📦 탐구 보고서 연계 힌트</h4>
+    <div class="formula-box" style="color:#cbd5e1; font-size:12px;">
+오른쪽 슬라이더를 밀어 3D 동전 탑을 삐딱하게 변형시켜도, 동전 하나하나의 <strong>반지름과 원형 면적</strong>은 완벽히 보존됩니다. 이것이 2D 면적을 넘어 3D 입체 부피에서도 카발리에리의 법칙이 성립하는 진짜 이유입니다.
     </div>
     
-    <h4>🔍 실시간 스캔 계측기</h4>
-    <div class="formula-box" style="font-size:13px; border-color: #f43f5e;">
-현재 검사 높이 = <span id="formula-curr-y" style="color: #f43f5e; font-weight:bold;">0.0</span>층<br>
-단면 조각 크기 = <span id="formula-curr-size" style="color: #10b981; font-weight:bold;">0</span> 단위
+    <h4>🔍 3D 실시간 계측 데이터</h4>
+    <div class="formula-box" style="border-color: #f43f5e;">
+현재 검사 높이 (y) = <span id="formula-curr-y" style="color: #f43f5e; font-weight:bold;">0.0</span><br>
+단면 원의 넓이 (S) = <span id="formula-curr-size" style="color: #10b981; font-weight:bold;">0</span>
     </div>
-    <div class="formula-note">※ 검사를 시작하면 빨간색 레이저선이 올라갑니다. 우측 그래프 위를 달리는 추적 점의 궤적이 도형을 변형시켜도 변하지 않는 것을 확인하세요.</div>
 </div>
 
 </body>
