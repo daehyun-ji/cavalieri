@@ -11,7 +11,7 @@
 <div class="main-content" id="mainContent">
     <div class="container">
         <h2>🧱 카발리에리 블록 쌓기 시뮬레이션</h2>
-        <p>수학을 몰라도 괜찮아요! 책이나 동전을 옆으로 스르륵 밀었을 때 전체 양(넓이/부피)이 변하는지 블록으로 직접 실험해 보세요.</p>
+        <p>수학 그래프를 몰라도 괜찮아요! 조각들을 옆으로 스르륵 밀어보며 단면의 크기가 어떻게 변하는지 직관적으로 관찰해 보세요.</p>
         
         <div class="controls">
             <div class="preset-row">
@@ -28,11 +28,11 @@
                     <input type="range" id="blockSlider" min="5" max="40" step="1" value="15">
                 </div>
                 <div class="control-group">
-                    <label for="shearSlider">오른쪽 도형 변형(밀기): <span id="shearVal" class="highlight-text">0.0 (정렬)</span></label>
+                    <label for="shearSlider">도형 B 밀기 (Shear): <span id="shearVal" class="highlight-text">0.0 (정렬)</span></label>
                     <input type="range" id="shearSlider" min="-1.0" max="1.0" step="0.1" value="0.0">
                 </div>
                 <div class="btn-group">
-                    <button id="startBtn" class="btn-blue">🧐 위아래 두께 검사 시작</button>
+                    <button id="startBtn" class="btn-blue">🧐 두께 실시간 검사 시작</button>
                     <button id="resetBtn" class="btn-slate">초기화</button>
                 </div>
             </div>
@@ -40,9 +40,9 @@
 
         <div class="canvas-container">
             <div class="canvas-header">
-                <span style="color:#38bdf8;">◀ 도형 A (똑바로 쌓음)</span>
-                <span style="color:#a8a29e;">[모양이 변해도 전체 양은 같을까요?]</span>
-                <span style="color:#10b981;">도형 B (옆으로 밀어봄) ▶</span>
+                <span style="color:#38bdf8;">도형 A (정형)</span>
+                <span style="color:#10b981; margin-right: 90px;">도형 B (변형)</span>
+                <span style="color:#a8a29e;">높이별 단면의 크기 변화 그래프</span>
             </div>
             <canvas id="cavalieriCanvas"></canvas>
         </div>
@@ -53,24 +53,24 @@
     <h3>눈으로 보는 수학 돋보기</h3>
     
     <h4>💡 핵심 원리 설명</h4>
-    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;">2D 삼각형 넓이 쌓기 f(y)</div>
+    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;">2D 삼각형 넓이 쌓기</div>
     <div id="formula-desc" class="formula-note" style="color: #cbd5e1; margin-bottom: 15px; font-size:12px; line-height:1.6;">
-        동일한 두께와 길이를 가진 종이 띠(블록)를 비스듬히 밀어도, 각 층의 길이는 변하지 않으므로 전체 넓이는 늘어나거나 줄어들지 않고 똑같습니다.
+        조각들의 위치를 옆으로 아무리 비틀고 찌그러트려도, 수평으로 자른 단면 조각의 길이 자체는 변하지 않으므로 전체 넓이는 똑같습니다.
     </div>
     
-    <h4>📦 직관적인 적분 매커니즘</h4>
+    <h4>📦 직관적인 누적 매커니즘</h4>
     <div class="formula-box" id="formula-integral" style="color:#e2e8f0; font-size:12px;">
-1. 도형을 아주 얇은 슬라이스 조각으로 쪼갭니다.<br><br>
-2. 조각들의 위치를 옆으로 아무리 비틀어도, <strong>조각 자체의 크기</strong>는 변하지 않습니다.<br><br>
-3. 따라서 조각을 전부 합친 전체 부피도 항상 똑같습니다!
+1. 도형을 얇은 블록(슬라이스)으로 쪼갭니다.<br><br>
+2. 조각을 옆으로 아무리 밀어내도 <strong>개별 조각의 원래 크기</strong>는 변하지 않습니다.<br><br>
+3. 따라서 조각의 모든 합(부피/넓이)은 언제나 완벽하게 같습니다!
     </div>
     
     <h4>🔍 실시간 스캔 계측기</h4>
     <div class="formula-box" style="font-size:13px; border-color: #f43f5e;">
-현재 검사 중인 높이 = <span id="formula-curr-y" style="color: #f43f5e; font-weight:bold;">0.0</span>층<br>
-해당 층 조각의 크기 = <span id="formula-curr-size" style="color: #10b981; font-weight:bold;">0</span> 단위
+현재 검사 높이 = <span id="formula-curr-y" style="color: #f43f5e; font-weight:bold;">0.0</span>층<br>
+단면 조각 크기 = <span id="formula-curr-size" style="color: #10b981; font-weight:bold;">0</span> 단위
     </div>
-    <div class="formula-note">※ 검사기를 가동하면 빨간선이 올라가며 좌우 조각 크기를 실시간 비교합니다. 두 블록의 크기는 언제나 일치합니다!</div>
+    <div class="formula-note">※ 검사를 시작하면 빨간색 레이저선이 올라갑니다. 우측 그래프 위를 달리는 추적 점의 궤적이 도형을 변형시켜도 변하지 않는 것을 확인하세요.</div>
 </div>
 
 </body>
