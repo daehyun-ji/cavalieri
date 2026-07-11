@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>카발리에리의 원리 시각화</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="cavalieri-mach.js" defer></script> 
+</head>
+<body>
+
+<div class="main-content" id="mainContent">
+    <div class="container">
+        <h2>카발리에리의 원리 (Cavalieri's Principle) 시뮬레이션</h2>
+        <p>"두 입체도형을 하나의 평면에 평행한 평면으로 잘랐을 때, 단면의 넓이가 항상 같으면 두 입체의 부피는 같다."</p>
+        
+        <div class="controls">
+            <div class="preset-row">
+                <span class="preset-label">차원 및 실험 모델 선택:</span>
+                <select id="modeSelect" class="styled-select">
+                    <option value="2d">1차원 단면 비교 (2D 삼각형의 넓이)</option>
+                    <option value="3d">2차원 단면 비교 (3D 구체 부피 유도)</option>
+                </select>
+            </div>
+
+            <div class="action-row">
+                <div class="control-group" style="max-width: 180px;">
+                    <label for="speedInput">스캔 속도 배속</label>
+                    <input type="range" id="speedInput" min="0.5" max="3.0" step="0.1" value="1.0">
+                </div>
+                <div class="control-group">
+                    <label for="shearInput">도형 B의 수평 변형량 (Shear / Slip): <span id="shearVal" class="highlight-freq">0.0</span></label>
+                    <input type="range" id="shearInput" min="-0.8" max="0.8" step="0.1" value="0.0">
+                </div>
+                <div class="btn-group">
+                    <button id="startBtn" class="btn-blue">실시간 단면 스캔</button>
+                    <button id="resetBtn" class="btn-slate">초기화</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-container">
+                <h3>1. 도형의 기하학적 위상 배치 (적층 구조 원리)</h3>
+                <canvas id="mainChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>2. 높이(y) 변위에 따른 단면적 스펙트럼 비교</h3>
+                <canvas id="sliceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="sidebar" class="sidebar">
+    <h3>수학적 연산식 대시보드</h3>
+    
+    <h4>1. 분석 모델 정보</h4>
+    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;"></div>
+    <div id="formula-desc" class="formula-note" style="color: #cbd5e1; margin-bottom: 15px;"></div>
+    
+    <h4>2. 카발리에리 적분 정의식</h4>
+    <div class="formula-box" id="formula-integral">Volume = ʃ [Area(y)] dy</div>
+    <div class="formula-note">※ 모든 높이 y에서 단면의 크기가 같다면, 적분(누적)한 총량도 완벽히 같아집니다.</div>
+    
+    <h4>3. 실시간 단면 계측 데이터</h4>
+    <div class="formula-box">
+현재 높이 (y) = <span id="formula-curr-y" style="color: #f43f5e;">0.00</span>
+단면 크기 S(y) = <span id="formula-curr-size" style="color: #10b981;">0.00</span>
+    </div>
+    <div class="formula-note">※ 수평 변형 슬라이더를 조작해 도형을 찌그러트려도 높이별 단면의 그래프 변화가 전혀 없음을 확인하세요. 이것이 적분의 본질입니다.</div>
+</div>
+
+</body>
+</html>
