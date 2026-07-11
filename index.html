@@ -2,8 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>카발리에리의 원리 시각화</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>초등학생도 이해하는 카발리에리 원리</title>
     <link rel="stylesheet" href="style.css">
     <script src="cavalieri-mach.js" defer></script> 
 </head>
@@ -11,65 +10,67 @@
 
 <div class="main-content" id="mainContent">
     <div class="container">
-        <h2>카발리에리의 원리 (Cavalieri's Principle) 시뮬레이션</h2>
-        <p>"두 입체도형을 하나의 평면에 평행한 평면으로 잘랐을 때, 단면의 넓이가 항상 같으면 두 입체의 부피는 같다."</p>
+        <h2>🧱 카발리에리 블록 쌓기 시뮬레이션</h2>
+        <p>수학을 몰라도 괜찮아요! 책이나 동전을 옆으로 스르륵 밀었을 때 전체 양(넓이/부피)이 변하는지 블록으로 직접 실험해 보세요.</p>
         
         <div class="controls">
             <div class="preset-row">
-                <span class="preset-label">차원 및 실험 모델 선택:</span>
+                <span class="preset-label">실험할 모양 선택:</span>
                 <select id="modeSelect" class="styled-select">
-                    <option value="2d">1차원 단면 비교 (2D 삼각형의 넓이)</option>
-                    <option value="3d">2차원 단면 비교 (3D 구체 부피 유도)</option>
+                    <option value="triangle">🔺 2D 블록 삼각형 (넓이 비교)</option>
+                    <option value="sphere">🔮 3D 동전 쌓기 모델 (부피 비교)</option>
                 </select>
             </div>
 
             <div class="action-row">
-                <div class="control-group" style="max-width: 180px;">
-                    <label for="speedInput">스캔 속도 배속</label>
-                    <input type="range" id="speedInput" min="0.5" max="3.0" step="0.1" value="1.0">
+                <div class="control-group" style="max-width: 160px;">
+                    <label for="blockSlider">블록 쪼개기 수: <span id="blockVal" class="highlight-text">15</span>개</label>
+                    <input type="range" id="blockSlider" min="5" max="40" step="1" value="15">
                 </div>
                 <div class="control-group">
-                    <label for="shearInput">도형 B의 수평 변형량 (Shear / Slip): <span id="shearVal" class="highlight-freq">0.0</span></label>
-                    <input type="range" id="shearInput" min="-0.8" max="0.8" step="0.1" value="0.0">
+                    <label for="shearSlider">오른쪽 도형 변형(밀기): <span id="shearVal" class="highlight-text">0.0 (정렬)</span></label>
+                    <input type="range" id="shearSlider" min="-1.0" max="1.0" step="0.1" value="0.0">
                 </div>
                 <div class="btn-group">
-                    <button id="startBtn" class="btn-blue">실시간 단면 스캔</button>
+                    <button id="startBtn" class="btn-blue">🧐 위아래 두께 검사 시작</button>
                     <button id="resetBtn" class="btn-slate">초기화</button>
                 </div>
             </div>
         </div>
 
-        <div class="chart-grid">
-            <div class="chart-container">
-                <h3>1. 도형의 기하학적 위상 배치 (적층 구조 원리)</h3>
-                <canvas id="mainChart"></canvas>
+        <div class="canvas-container">
+            <div class="canvas-header">
+                <span style="color:#38bdf8;">◀ 도형 A (똑바로 쌓음)</span>
+                <span style="color:#a8a29e;">[모양이 변해도 전체 양은 같을까요?]</span>
+                <span style="color:#10b981;">도형 B (옆으로 밀어봄) ▶</span>
             </div>
-            
-            <div class="chart-container">
-                <h3>2. 높이(y) 변위에 따른 단면적 스펙트럼 비교</h3>
-                <canvas id="sliceChart"></canvas>
-            </div>
+            <canvas id="cavalieriCanvas"></canvas>
         </div>
     </div>
 </div>
 
 <div id="sidebar" class="sidebar">
-    <h3>수학적 연산식 대시보드</h3>
+    <h3>눈으로 보는 수학 돋보기</h3>
     
-    <h4>1. 분석 모델 정보</h4>
-    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;"></div>
-    <div id="formula-desc" class="formula-note" style="color: #cbd5e1; margin-bottom: 15px;"></div>
-    
-    <h4>2. 카발리에리 적분 정의식</h4>
-    <div class="formula-box" id="formula-integral">Volume = ʃ [Area(y)] dy</div>
-    <div class="formula-note">※ 모든 높이 y에서 단면의 크기가 같다면, 적분(누적)한 총량도 완벽히 같아집니다.</div>
-    
-    <h4>3. 실시간 단면 계측 데이터</h4>
-    <div class="formula-box">
-현재 높이 (y) = <span id="formula-curr-y" style="color: #f43f5e;">0.00</span>
-단면 크기 S(y) = <span id="formula-curr-size" style="color: #10b981;">0.00</span>
+    <h4>💡 핵심 원리 설명</h4>
+    <div id="formula-title" class="formula-box" style="color: #61dafb; font-weight: bold;">2D 삼각형 넓이 쌓기 f(y)</div>
+    <div id="formula-desc" class="formula-note" style="color: #cbd5e1; margin-bottom: 15px; font-size:12px; line-height:1.6;">
+        동일한 두께와 길이를 가진 종이 띠(블록)를 비스듬히 밀어도, 각 층의 길이는 변하지 않으므로 전체 넓이는 늘어나거나 줄어들지 않고 똑같습니다.
     </div>
-    <div class="formula-note">※ 수평 변형 슬라이더를 조작해 도형을 찌그러트려도 높이별 단면의 그래프 변화가 전혀 없음을 확인하세요. 이것이 적분의 본질입니다.</div>
+    
+    <h4>📦 직관적인 적분 매커니즘</h4>
+    <div class="formula-box" id="formula-integral" style="color:#e2e8f0; font-size:12px;">
+1. 도형을 아주 얇은 슬라이스 조각으로 쪼갭니다.<br><br>
+2. 조각들의 위치를 옆으로 아무리 비틀어도, <strong>조각 자체의 크기</strong>는 변하지 않습니다.<br><br>
+3. 따라서 조각을 전부 합친 전체 부피도 항상 똑같습니다!
+    </div>
+    
+    <h4>🔍 실시간 스캔 계측기</h4>
+    <div class="formula-box" style="font-size:13px; border-color: #f43f5e;">
+현재 검사 중인 높이 = <span id="formula-curr-y" style="color: #f43f5e; font-weight:bold;">0.0</span>층<br>
+해당 층 조각의 크기 = <span id="formula-curr-size" style="color: #10b981; font-weight:bold;">0</span> 단위
+    </div>
+    <div class="formula-note">※ 검사기를 가동하면 빨간선이 올라가며 좌우 조각 크기를 실시간 비교합니다. 두 블록의 크기는 언제나 일치합니다!</div>
 </div>
 
 </body>
